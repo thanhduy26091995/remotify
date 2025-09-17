@@ -38,20 +38,28 @@ function editItem(item: any) {
 </script>
 
 <template>
-    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
-            data-bs-toggle="dropdown" aria-expanded="false" :disabled="items.length === 0"></button>
-    <ul class="dropdown-menu" aria-labelledby="dropdownMenuItem">
-      <li v-for="item in items" v-bind:key="item.value">
-        &nbsp;&nbsp; <i class="bi bi-clock text-muted">&nbsp;&nbsp;</i>
-        <span v-on:click="click($event, item)" class="timestamp text-muted text-sm">{{item.sent_at}} | </span>
-        <span v-on:click="click($event, item)">{{item.value}}</span>  |
-        <i class="bi bi-pencil" v-on:click="editItem(item)"> &nbsp; </i>
-        <i class="bi bi-x" v-on:click="deleteItem(item)"></i>
-        <hr class="dropdown-divider">
-      </li>
-    </ul>
+  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
+          data-bs-toggle="dropdown" aria-expanded="false" :disabled="items.length === 0"></button>
+  <ul class="dropdown-menu" aria-labelledby="dropdownMenuItem">
+    <li v-for="item in items" v-bind:key="item.value">
+      &nbsp;&nbsp; <i class="bi bi-clock text-muted">&nbsp;&nbsp;</i>
+      <span v-on:click="click($event, item)" class="timestamp text-muted text-sm clickable">{{ item.sent_at }} | </span>
+      <span v-on:click="click($event, item)" class="clickable" >{{ item.value }}</span> |
+      <i class="bi bi-pencil" v-on:click="editItem(item)"> &nbsp; </i>
+      <i class="bi bi-x" v-on:click="deleteItem(item)"></i>
+      <hr class="dropdown-divider">
+    </li>
+  </ul>
 </template>
 
 <style scoped>
+.clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
 
+.clickable:hover {
+  color: #007bff;
+  text-decoration: underline;
+}
 </style>
