@@ -25,7 +25,7 @@ jobs:
         with:
           submodules: recursive
       - name: Build wails
-        uses: dAppServer/wails-build-action@v2.2
+        uses: dAppServer/wails-build-action@main
         id: build
         with:
           build-name: ${{ matrix.build.name }}
@@ -33,7 +33,7 @@ jobs:
           package: false
           go-version: '1.22'
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Wails Build ${{runner.os}} ${{inputs.build-name}}
           path: |
