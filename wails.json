@@ -48,7 +48,7 @@
             "productVersion": {
                 "type": "string",
                 "description": "The version of the product",
-                "default": "1.0.2"
+                "default": "1.0.3"
             },
             "copyright": {
                 "type": "string",
