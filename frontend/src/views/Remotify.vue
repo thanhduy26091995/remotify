@@ -3,6 +3,7 @@ import {reactive, onMounted, ref} from 'vue'
 import APNS from "./APNS.vue";
 import FCM from "./FCM.vue";
 import Settings from "./Settings.vue";
+import GenerateCode from "./GenerateCode.vue";
 import * as rt from "../../wailsjs/runtime/runtime.js";
 import { Modal } from 'bootstrap';
 import {
@@ -21,8 +22,10 @@ import {toast} from "vue3-toastify";
 const settingComponentKey = ref(0);
 const apnsComponentKey = ref(0);
 const fcmComponentKey = ref(0);
+const generateCodeComponentKey = ref(0);
 const apnsRef = ref()
 const fcmRef = ref()
+const generateCodeRef = ref()
 
 const currentEditMessageId = ref(0)
 const currentEditMessageType = ref(RemoteNotificationType.APNS)
@@ -95,6 +98,11 @@ rt.EventsOn('onOpenAPNS', (event) => {
 
 rt.EventsOn('onOpenFCM', (event) => {
   const btn = document.getElementById("nav-fcm-tab");
+  btn?.click()
+});
+
+rt.EventsOn('onOpenGenerateCode', (event) => {
+  const btn = document.getElementById("nav-generate-code-tab");
   btn?.click()
 });
 
@@ -231,6 +239,7 @@ async function updateNote() {
               <button class="nav-link active" id="nav-apns-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-controls="nav-home" aria-selected="true"><i class="bi bi-apple text-primary" ></i>  &nbsp;APNS</button>
               <button class="nav-link" id="nav-fcm-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="false"><i class="bi bi-fire text-warning" ></i>  &nbsp;FCM</button>
               <button class="nav-link" id="nav-setting-tab" data-bs-toggle="tab" data-bs-target="#nav-contact" type="button" role="tab" aria-controls="nav-contact" aria-selected="false"><i class="bi bi-gear-wide-connected text-primary" ></i>  &nbsp;Settings</button>
+              <button class="nav-link" id="nav-generate-code-tab" data-bs-toggle="tab" data-bs-target="#nav-generate-code" type="button" role="tab" aria-controls="nav-generate-code" aria-selected="false"><i class="bi bi-code-slash text-success" ></i>  &nbsp;Generate Code</button>
             </div>
           </nav>
         </div>
@@ -255,6 +264,9 @@ async function updateNote() {
         </div>
         <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-setting-tab" tabindex="2">
           <Settings :key="settingComponentKey"/>
+        </div>
+        <div class="tab-pane fade" id="nav-generate-code" role="tabpanel" aria-labelledby="nav-generate-code-tab" tabindex="3">
+          <GenerateCode ref="generateCodeRef" :key="generateCodeComponentKey"/>
         </div>
       </div>
     </div>
