@@ -1,0 +1,8 @@
+import PushNotification from 'react-native-push-notification';
+
+PushNotification.localNotification({
+    title: "{{title}}",
+    message: "{{body}}",
+    playSound: true,
+    soundName: 'default',
+});

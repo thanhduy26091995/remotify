@@ -1,0 +1,20 @@
+import com.google.firebase.messaging.*;
+
+Message message = Message.builder()
+    .setToken("DEVICE_TOKEN")
+    .setNotification(Notification.builder()
+        .setTitle("{{title}}")
+        .setBody("{{body}}")
+        .build())
+    .setApnsConfig(ApnsConfig.builder()
+        .setAps(Aps.builder()
+            .setAlert(ApsAlert.builder()
+                .setTitle("{{title}}")
+                .setBody("{{body}}")
+                .build())
+            .build())
+        .build())
+    .build();
+
+String response = FirebaseMessaging.getInstance().send(message);
+System.out.println("Successfully sent message: " + response);

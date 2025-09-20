@@ -1,0 +1,16 @@
+<?php
+require_once __DIR__.'/vendor/autoload.php';
+
+use Kreait\Firebase\Factory;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification;
+
+$factory = (new Factory)->withServiceAccount('path/to/service-account.json');
+$messaging = $factory->createMessaging();
+
+$message = CloudMessage::withTarget('token', 'DEVICE_TOKEN')
+    ->withNotification(Notification::create('{{title}}', '{{body}}'));
+
+$result = $messaging->send($message);
+echo 'Successfully sent message: ' . $result;
+?>

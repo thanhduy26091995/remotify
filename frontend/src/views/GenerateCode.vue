@@ -1,416 +1,469 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { GetSettings } from "../../wailsjs/go/main/App"
-import { values } from "../../wailsjs/go/models"
+import { ref, computed, watch, onMounted } from "vue";
+import { GetSettings } from "../../wailsjs/go/main/App";
+import { values } from "../../wailsjs/go/models";
+import { templateLoader } from "../utils/templateLoader";
+import { notify } from "../components/notification";
 
 // Define props to receive payload data from parent tabs
 const props = defineProps({
   apnsPayload: {
     type: String,
-    default: ''
+    default: "",
   },
   fcmPayload: {
     type: String,
-    default: ''
-  }
-})
+    default: "",
+  },
+});
 
 // Client Platform options
 const clientPlatforms = [
-  { value: 'ios-swift', label: 'iOS Swift' },
-  { value: 'ios-objc', label: 'iOS Objective-C' },
-  { value: 'android-kotlin', label: 'Android Kotlin' },
-  { value: 'android-java', label: 'Android Java' },
-  { value: 'flutter', label: 'Flutter' },
-  { value: 'react-native', label: 'React Native' }
-]
+  { value: "ios-swift", label: "iOS Swift" },
+  { value: "ios-objc", label: "iOS Objective-C" },
+  { value: "android-kotlin", label: "Android Kotlin" },
+  { value: "android-java", label: "Android Java" },
+  { value: "flutter", label: "Flutter" },
+  { value: "react-native", label: "React Native" },
+];
 
 // Server Language options
 const serverLanguages = [
-  { value: 'nodejs', label: 'Node.js' },
-  { value: 'python', label: 'Python' },
-  { value: 'go', label: 'Go' },
-  { value: 'java', label: 'Java' },
-  { value: 'csharp', label: 'C#' },
-  { value: 'php', label: 'PHP' }
-]
+  { value: "nodejs", label: "Node.js" },
+  { value: "python", label: "Python" },
+  { value: "go", label: "Go" },
+  { value: "java", label: "Java" },
+  { value: "csharp", label: "C#" },
+  { value: "php", label: "PHP" },
+];
 
 // Reactive state
-const selectedClientPlatform = ref('ios-swift')
-const selectedServerLanguage = ref('nodejs')
-const editPayloadHere = ref(false)
-const customPayload = ref<any>({
-  "aps": {
-    "alert": {
-      "title": "Hello",
-      "body": "World"
-    }
-  }
-})
-const customPayloadText = ref(JSON.stringify(customPayload.value, null, 2))
+const defaultPayload = {
+  aps: {
+    alert: {
+      title: "Notification Title",
+      subtitle: "Notification Subtitle",
+      body: "Notification Message Body",
+    },
+    sound: "default",
+    badge: 19,
+    category: "CATEGORY_IDENTIFIER_SHOULD_BE_UPPERCASED",
+    "thread-id": "message_thread_id",
+    "mutable-content": 1,
+  },
+  custom_data: {
+    key: "value",
+    nested_object: {
+      key: "value",
+    },
+  },
+};
+const selectedClientPlatform = ref("ios-swift");
+const selectedServerLanguage = ref("nodejs");
+const editPayloadHere = ref(false);
+const customPayload = ref<any>(defaultPayload);
+const customPayloadText = ref(JSON.stringify(customPayload.value, null, 2));
+const clientCodeTemplate = ref("");
+const serverCodeTemplate = ref("");
+const isLoadingClientTemplate = ref(false);
+const isLoadingServerTemplate = ref(false);
 
-const isDarkMode = ref(false)
+const isDarkMode = ref(false);
 
 // Load theme on mount
 onMounted(() => {
-  GetSettings().then(data => {
-    let settings = JSON.parse(data)
-    isDarkMode.value = settings.data.theme_mode === 'dark'
-  })
-})
+  GetSettings().then((data) => {
+    let settings = JSON.parse(data);
+    isDarkMode.value = settings.data.theme_mode === "dark";
+  });
+
+  // Load initial templates
+  loadClientTemplate();
+  loadServerTemplate();
+});
+
+// Load client template
+const loadClientTemplate = async () => {
+  isLoadingClientTemplate.value = true;
+  try {
+    const template = await templateLoader.loadClientTemplate(
+      selectedClientPlatform.value
+    );
+    clientCodeTemplate.value = template;
+  } catch (error) {
+    console.error("Failed to load client template:", error);
+    clientCodeTemplate.value = "// Failed to load template";
+  } finally {
+    isLoadingClientTemplate.value = false;
+  }
+};
+
+// Load server template
+const loadServerTemplate = async () => {
+  isLoadingServerTemplate.value = true;
+  try {
+    const template = await templateLoader.loadServerTemplate(
+      selectedServerLanguage.value
+    );
+    serverCodeTemplate.value = template;
+  } catch (error) {
+    console.error("Failed to load server template:", error);
+    serverCodeTemplate.value = "// Failed to load template";
+  } finally {
+    isLoadingServerTemplate.value = false;
+  }
+};
+
+// Watch for platform/language changes
+watch(selectedClientPlatform, loadClientTemplate);
+watch(selectedServerLanguage, loadServerTemplate);
 
 // Generated client code
 const clientCode = computed(() => {
-  const platform = selectedClientPlatform.value
-  let payload: any = customPayload.value
-  
+  if (isLoadingClientTemplate.value) {
+    return "// Loading template...";
+  }
+
+  if (!clientCodeTemplate.value) {
+    return "// Template not available";
+  }
+
+  let payload: any = customPayload.value;
+
   // If not editing payload here, use the default template or parent payload
   if (!editPayloadHere.value) {
     try {
       // Use APNS payload if available, otherwise use default
       if (props.apnsPayload) {
-        payload = JSON.parse(props.apnsPayload)
+        payload = JSON.parse(props.apnsPayload);
       } else {
-        payload = JSON.parse(values.PayloadTemplate.DefaultAPNS)
+        payload = JSON.parse(values.PayloadTemplate.DefaultAPNS);
       }
     } catch (e) {
       // Fallback to current payload if parsing fails
-      console.warn('Failed to parse payload, using current payload')
+      console.warn("Failed to parse payload, using current payload");
     }
   }
-  
+
   // Extract title and body safely
-  const title = payload?.aps?.alert?.title || payload?.notification?.title || "Hello"
-  const body = payload?.aps?.alert?.body || payload?.notification?.body || "World"
-  
-  switch (platform) {
-    case 'ios-swift':
-      return `let content = UNMutableNotificationContent()
-content.title = "${title}"
-content.body = "${body}"
-content.sound = UNNotificationSound.default
+  const title =
+    payload?.aps?.alert?.title || payload?.notification?.title || "Hello";
+  const body =
+    payload?.aps?.alert?.body || payload?.notification?.body || "World";
 
-let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-let request = UNNotificationRequest(identifier: "notification", content: content, trigger: trigger)
-
-UNUserNotificationCenter.current().add(request) { error in
-    if let error = error {
-        print("Error: \\(error.localizedDescription)")
-    }
-}`
-    
-    case 'ios-objc':
-      return `UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-content.title = @"${title}";
-content.body = @"${body}";
-content.sound = [UNNotificationSound defaultSound];
-
-UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger 
-    triggerWithTimeInterval:1 repeats:NO];
-    
-UNNotificationRequest *request = [UNNotificationRequest 
-    requestWithIdentifier:@"notification" content:content trigger:trigger];
-
-[[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request 
-    withCompletionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"Error: %@", error.localizedDescription);
-        }
-    }];`
-    
-    case 'android-kotlin':
-      return `val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-    .setSmallIcon(R.drawable.ic_notification)
-    .setContentTitle("${title}")
-    .setContentText("${body}")
-    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-    .build()
-
-notificationManager.notify(1, notification)`
-    
-    case 'android-java':
-      return `NotificationManager notificationManager = 
-    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-    .setSmallIcon(R.drawable.ic_notification)
-    .setContentTitle("${title}")
-    .setContentText("${body}")
-    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-    .build();
-
-notificationManager.notify(1, notification);`
-    
-    case 'flutter':
-      return `final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-const AndroidNotificationDetails androidPlatformChannelSpecifics =
-    AndroidNotificationDetails(
-        'channel_id', 'channel_name',
-        importance: Importance.max,
-        priority: Priority.high);
-
-const NotificationDetails platformChannelSpecifics =
-    NotificationDetails(android: androidPlatformChannelSpecifics);
-
-await flutterLocalNotificationsPlugin.show(
-    0,
-    '${title}',
-    '${body}',
-    platformChannelSpecifics);`
-    
-    case 'react-native':
-      return `import PushNotification from 'react-native-push-notification';
-
-PushNotification.localNotification({
-    title: "${title}",
-    message: "${body}",
-    playSound: true,
-    soundName: 'default',
-});`
-    
-    default:
-      return '// Select a platform to generate code'
-  }
-})
+  return templateLoader.processTemplate(clientCodeTemplate.value, {
+    title,
+    body,
+  });
+});
 
 // Generated server code
 const serverCode = computed(() => {
-  const language = selectedServerLanguage.value
-  let payload: any = customPayload.value
-  
+  if (isLoadingServerTemplate.value) {
+    return "// Loading template...";
+  }
+
+  if (!serverCodeTemplate.value) {
+    return "// Template not available";
+  }
+
+  let payload: any = customPayload.value;
+
   // If not editing payload here, use the default template or parent payload
   if (!editPayloadHere.value) {
     try {
       // Use APNS payload if available, otherwise use default
       if (props.apnsPayload) {
-        payload = JSON.parse(props.apnsPayload)
+        payload = JSON.parse(props.apnsPayload);
+      } else if (props.fcmPayload) {
+        payload = JSON.parse(props.fcmPayload);
       } else {
-        payload = JSON.parse(values.PayloadTemplate.DefaultAPNS)
+        payload = JSON.parse(values.PayloadTemplate.DefaultAPNS);
       }
     } catch (e) {
       // Fallback to current payload if parsing fails
-      console.warn('Failed to parse payload, using current payload')
+      console.warn("Failed to parse payload, using current payload");
     }
   }
-  
+
   // Extract title and body safely
-  const title = payload?.aps?.alert?.title || payload?.notification?.title || "Hello"
-  const body = payload?.aps?.alert?.body || payload?.notification?.body || "World"
-  
-  switch (language) {
-    case 'nodejs':
-      return `const admin = require('firebase-admin');
+  const title =
+    payload?.aps?.alert?.title || payload?.notification?.title || "Hello";
+  const body =
+    payload?.aps?.alert?.body || payload?.notification?.body || "World";
 
-const message = {
-    token: "DEVICE_TOKEN",
-    notification: {
-        title: "${title}",
-        body: "${body}"
-    },
-    apns: {
-        payload: {
-            aps: {
-                alert: {
-                    title: "${title}",
-                    body: "${body}"
-                }
-            }
-        }
-    }
-};
-
-admin.messaging().send(message)
-    .then((response) => {
-        console.log('Successfully sent message:', response);
-    })
-    .catch((error) => {
-        console.log('Error sending message:', error);
-    });`
-    
-    case 'python':
-      return `from firebase_admin import messaging
-import firebase_admin
-
-message = messaging.Message(
-    token="DEVICE_TOKEN",
-    notification=messaging.Notification(
-        title="${title}",
-        body="${body}"
-    ),
-    apns=messaging.APNSConfig(
-        payload=messaging.APNSPayload(
-            aps=messaging.Aps(
-                alert=messaging.ApsAlert(
-                    title="${title}",
-                    body="${body}"
-                )
-            )
-        )
-    )
-)
-
-response = messaging.send(message)
-print(f'Successfully sent message: {response}')`
-    
-    case 'go':
-      return `package main
-
-import (
-    "context"
-    "log"
-    
-    firebase "firebase.google.com/go"
-    "firebase.google.com/go/messaging"
-)
-
-func sendMessage() {
-    message := &messaging.Message{
-        Token: "DEVICE_TOKEN",
-        Notification: &messaging.Notification{
-            Title: "${title}",
-            Body:  "${body}",
-        },
-        APNS: &messaging.APNSConfig{
-            Payload: &messaging.APNSPayload{
-                Aps: &messaging.Aps{
-                    Alert: &messaging.ApsAlert{
-                        Title: "${title}",
-                        Body:  "${body}",
-                    },
-                },
-            },
-        },
-    }
-    
-    response, err := client.Send(ctx, message)
-    if err != nil {
-        log.Fatalln(err)
-    }
-    
-    log.Printf("Successfully sent message: %s", response)
-}`
-    
-    case 'java':
-      return `import com.google.firebase.messaging.*;
-
-Message message = Message.builder()
-    .setToken("DEVICE_TOKEN")
-    .setNotification(Notification.builder()
-        .setTitle("${title}")
-        .setBody("${body}")
-        .build())
-    .setApnsConfig(ApnsConfig.builder()
-        .setAps(Aps.builder()
-            .setAlert(ApsAlert.builder()
-                .setTitle("${title}")
-                .setBody("${body}")
-                .build())
-            .build())
-        .build())
-    .build();
-
-String response = FirebaseMessaging.getInstance().send(message);
-System.out.println("Successfully sent message: " + response);`
-    
-    case 'csharp':
-      return `using FirebaseAdmin.Messaging;
-
-var message = new Message()
-{
-    Token = "DEVICE_TOKEN",
-    Notification = new Notification()
-    {
-        Title = "${title}",
-        Body = "${body}"
-    },
-    Apns = new ApnsConfig()
-    {
-        Aps = new Aps()
-        {
-            Alert = new ApsAlert()
-            {
-                Title = "${title}",
-                Body = "${body}"
-            }
-        }
-    }
-};
-
-string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
-Console.WriteLine($"Successfully sent message: {response}");`
-    
-    case 'php':
-      return `<?php
-require_once __DIR__.'/vendor/autoload.php';
-
-use Kreait\\Firebase\\Factory;
-use Kreait\\Firebase\\Messaging\\CloudMessage;
-use Kreait\\Firebase\\Messaging\\Notification;
-
-$factory = (new Factory)->withServiceAccount('path/to/service-account.json');
-$messaging = $factory->createMessaging();
-
-$message = CloudMessage::withTarget('token', 'DEVICE_TOKEN')
-    ->withNotification(Notification::create('${title}', '${body}'));
-
-$result = $messaging->send($message);
-echo 'Successfully sent message: ' . $result;
-?>`
-    
-    default:
-      return '// Select a server language to generate code'
-  }
-})
+  return templateLoader.processTemplate(serverCodeTemplate.value, {
+    title,
+    body,
+  });
+});
 
 // Copy to clipboard functions
 const copyClientCode = async () => {
   try {
-    await navigator.clipboard.writeText(clientCode.value)
-    // Could add a toast notification here
+    await navigator.clipboard.writeText(clientCode.value);
+    notify("Client code copied to clipboard!", true);
   } catch (err) {
-    console.error('Failed to copy client code: ', err)
+    console.error("Failed to copy client code: ", err);
+    notify("Failed to copy client code", false);
   }
-}
+};
 
 const copyServerCode = async () => {
   try {
-    await navigator.clipboard.writeText(serverCode.value)
-    // Could add a toast notification here
+    await navigator.clipboard.writeText(serverCode.value);
+    notify("Server code copied to clipboard!", true);
   } catch (err) {
-    console.error('Failed to copy server code: ', err)
+    console.error("Failed to copy server code: ", err);
+    notify("Failed to copy server code", false);
   }
-}
+};
 
 const resetPayload = () => {
-  customPayload.value = {
-    "aps": {
-      "alert": {
-        "title": "Hello",
-        "body": "World"
-      }
-    }
-  }
-  customPayloadText.value = JSON.stringify(customPayload.value, null, 2)
-}
+  customPayload.value = defaultPayload;
+  customPayloadText.value = JSON.stringify(customPayload.value, null, 2);
+};
 
 const updatePayloadFromText = () => {
   try {
-    customPayload.value = JSON.parse(customPayloadText.value)
+    customPayload.value = JSON.parse(customPayloadText.value);
   } catch (e) {
     // Invalid JSON, keep the current payload
-    console.warn('Invalid JSON in payload editor')
+    console.warn("Invalid JSON in payload editor");
   }
+};
+
+const downloadZip = async () => {
+  try {
+    // Dynamic import of JSZip
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+
+    // Get current platform and language labels for filenames
+    const clientPlatform = clientPlatforms.find(
+      (p) => p.value === selectedClientPlatform.value
+    );
+    const serverLanguage = serverLanguages.find(
+      (l) => l.value === selectedServerLanguage.value
+    );
+
+    if (!clientPlatform || !serverLanguage) {
+      console.error("Invalid platform or language selection");
+      return;
+    }
+
+    // Determine file extensions based on platform/language
+    const getClientFileExtension = (platform: string): string => {
+      switch (platform) {
+        case "ios-swift":
+          return "swift";
+        case "ios-objc":
+          return "m";
+        case "android-kotlin":
+          return "kt";
+        case "android-java":
+          return "java";
+        case "flutter":
+          return "dart";
+        case "react-native":
+          return "js";
+        default:
+          return "txt";
+      }
+    };
+
+    const getServerFileExtension = (language: string): string => {
+      switch (language) {
+        case "nodejs":
+          return "js";
+        case "python":
+          return "py";
+        case "go":
+          return "go";
+        case "java":
+          return "java";
+        case "csharp":
+          return "cs";
+        case "php":
+          return "php";
+        default:
+          return "txt";
+      }
+    };
+
+    // Generate filenames
+    const clientFileName = `client-${
+      selectedClientPlatform.value
+    }.${getClientFileExtension(selectedClientPlatform.value)}`;
+    const serverFileName = `server-${
+      selectedServerLanguage.value
+    }.${getServerFileExtension(selectedServerLanguage.value)}`;
+
+    // Add files to zip
+    zip.file(clientFileName, clientCode.value);
+    zip.file(serverFileName, serverCode.value);
+
+    // Add a README file with information
+    const readmeContent = `# Generated Push Notification Code
+
+Generated on: ${new Date().toISOString()}
+Platform: ${clientPlatform.label} | Server: ${serverLanguage.label}
+
+## Files Included
+
+### 📱 Client Code
+- **${clientFileName}**
+- Platform: ${clientPlatform.label}
+- Contains client-side code for local notifications
+
+### 🖥️ Server Code  
+- **${serverFileName}**
+- Language: ${serverLanguage.label}
+- Contains server-side code for push notifications via Firebase
+
+${
+  selectedServerLanguage.value === "nodejs"
+    ? "- **package.json** - Node.js dependencies"
+    : ""
+}
+${
+  selectedServerLanguage.value === "python"
+    ? "- **requirements.txt** - Python dependencies"
+    : ""
+}
+${
+  selectedServerLanguage.value === "go"
+    ? "- **go.mod** - Go module definition"
+    : ""
 }
 
-const downloadZip = () => {
-  // TODO: Implement zip download functionality
-  console.log('Download ZIP functionality not implemented yet')
-}
+## 🚀 Quick Start
 
+### Client Setup (${clientPlatform.label})
+
+1. Copy the contents of \`${clientFileName}\` into your ${
+      clientPlatform.label
+    } project
+2. Install required dependencies:
+${
+  selectedClientPlatform.value === "ios-swift" ||
+  selectedClientPlatform.value === "ios-objc"
+    ? "   - Import UserNotifications framework\n   - Request notification permissions in your app"
+    : selectedClientPlatform.value === "android-kotlin" ||
+      selectedClientPlatform.value === "android-java"
+    ? "   - Add AndroidX Core library\n   - Add notification permissions to AndroidManifest.xml"
+    : selectedClientPlatform.value === "flutter"
+    ? "   - Add flutter_local_notifications plugin to pubspec.yaml\n   - Configure platform-specific settings"
+    : "   - Install react-native-push-notification\n   - Configure platform-specific settings"
+}
+3. Configure notification permissions as required by the platform
+
+### Server Setup (${serverLanguage.label})
+
+1. Copy the contents of \`${serverFileName}\` into your ${
+      serverLanguage.label
+    } project
+2. Install dependencies:
+${
+  selectedServerLanguage.value === "nodejs"
+    ? "   ```bash\n   npm install\n   ```"
+    : selectedServerLanguage.value === "python"
+    ? "   ```bash\n   pip install -r requirements.txt\n   ```"
+    : selectedServerLanguage.value === "go"
+    ? "   ```bash\n   go mod tidy\n   ```"
+    : selectedServerLanguage.value === "java"
+    ? "   - Add Firebase Admin SDK to your build.gradle or pom.xml"
+    : selectedServerLanguage.value === "csharp"
+    ? "   - Install FirebaseAdmin NuGet package"
+    : "   ```bash\n   composer require kreait/firebase-php\n   ```"
+}
+3. Configure Firebase:
+   - Download your service account key from Firebase Console
+   - Set up Firebase Admin SDK credentials
+   - Replace "DEVICE_TOKEN" with actual device tokens
+
+## 🔧 Configuration Notes
+
+### Firebase Setup
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create a new project or select existing project
+3. Navigate to Project Settings > Service Accounts
+4. Generate a new private key and download the JSON file
+5. Use this file in your server code for authentication
+
+### Testing
+- For local notifications: Test on device/simulator directly
+- For push notifications: Use Firebase Console or implement the server code
+- Always test on physical devices for push notifications
+
+## 📚 Additional Resources
+- [Firebase Documentation](https://firebase.google.com/docs)
+- [Push Notification Best Practices](https://developer.apple.com/documentation/usernotifications)
+- [Android Notification Guide](https://developer.android.com/guide/topics/ui/notifiers/notifications)
+
+---
+*Generated by [Remotify](https://github.com/thanhduy26091995/remotify) - Push Notification Testing Tool*
+`;
+
+    zip.file("README.md", readmeContent);
+
+    // Add package.json for Node.js projects
+    if (selectedServerLanguage.value === "nodejs") {
+      const packageJson = {
+        name: "push-notification-server",
+        version: "1.0.0",
+        description: "Generated push notification server code",
+        main: serverFileName,
+        dependencies: {
+          "firebase-admin": "^11.0.0",
+        },
+        scripts: {
+          start: `node ${serverFileName}`,
+        },
+      };
+      zip.file("package.json", JSON.stringify(packageJson, null, 2));
+    }
+
+    // Add requirements.txt for Python projects
+    if (selectedServerLanguage.value === "python") {
+      const requirements = "firebase-admin>=6.0.0\n";
+      zip.file("requirements.txt", requirements);
+    }
+
+    // Add go.mod for Go projects
+    if (selectedServerLanguage.value === "go") {
+      const goMod = `module push-notification-server
+
+go 1.19
+
+require (
+    firebase.google.com/go v3.13.0+incompatible
+)
+`;
+      zip.file("go.mod", goMod);
+    }
+
+    // Generate zip file
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+
+    // Create download
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `remotify-generated-code-${Date.now()}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Success feedback (you could add a toast notification here)
+    console.log("Code package downloaded successfully");
+    notify("Code package downloaded successfully!", true);
+  } catch (error) {
+    console.error("Failed to generate zip file:", error);
+    notify("Failed to generate code package", false);
+  }
+};
 </script>
 
 <template>
@@ -420,17 +473,37 @@ const downloadZip = () => {
         <!-- Platform Selection -->
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="clientPlatform" class="form-label">Client Platform:</label>
-            <select id="clientPlatform" class="form-select" v-model="selectedClientPlatform">
-              <option v-for="platform in clientPlatforms" :key="platform.value" :value="platform.value">
+            <label for="clientPlatform" class="form-label"
+              >Client Platform:</label
+            >
+            <select
+              id="clientPlatform"
+              class="form-select"
+              v-model="selectedClientPlatform"
+            >
+              <option
+                v-for="platform in clientPlatforms"
+                :key="platform.value"
+                :value="platform.value"
+              >
                 {{ platform.label }}
               </option>
             </select>
           </div>
           <div class="col-md-6">
-            <label for="serverLanguage" class="form-label">Server Language:</label>
-            <select id="serverLanguage" class="form-select" v-model="selectedServerLanguage">
-              <option v-for="language in serverLanguages" :key="language.value" :value="language.value">
+            <label for="serverLanguage" class="form-label"
+              >Server Language:</label
+            >
+            <select
+              id="serverLanguage"
+              class="form-select"
+              v-model="selectedServerLanguage"
+            >
+              <option
+                v-for="language in serverLanguages"
+                :key="language.value"
+                :value="language.value"
+              >
                 {{ language.label }}
               </option>
             </select>
@@ -441,13 +514,18 @@ const downloadZip = () => {
         <div class="row mb-3">
           <div class="col-12">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="editPayloadHere" v-model="editPayloadHere">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="editPayloadHere"
+                v-model="editPayloadHere"
+              />
               <label class="form-check-label" for="editPayloadHere">
                 Edit Payload Here
               </label>
             </div>
             <small class="text-muted">
-              When "Edit Payload Here" is OFF → use payload from APNS/FCM tab<br>
+              When "Edit Payload Here" is OFF → use payload from APNS/FCM tab<br />
               When ON → show inline JSON editor
             </small>
           </div>
@@ -457,13 +535,16 @@ const downloadZip = () => {
         <div v-if="editPayloadHere" class="row mb-3">
           <div class="col-12">
             <label class="form-label">Payload Editor:</label>
-            <div class="border rounded p-3" :class="isDarkMode ? 'bg-dark text-light' : 'bg-light'">
-              <textarea 
-                class="form-control" 
-                rows="8" 
-                v-model="customPayloadText" 
+            <div
+              class="border rounded p-3"
+              :class="isDarkMode ? 'bg-dark text-light' : 'bg-light'"
+            >
+              <textarea
+                class="form-control"
+                rows="8"
+                v-model="customPayloadText"
                 @input="updatePayloadFromText"
-                style="font-family: 'Courier New', monospace;"
+                style="font-family: 'Courier New', monospace"
                 :class="isDarkMode ? 'bg-dark text-light border-secondary' : ''"
               ></textarea>
             </div>
@@ -474,12 +555,21 @@ const downloadZip = () => {
         <div class="row mb-4">
           <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="mb-0">Client Code ({{ clientPlatforms.find(p => p.value === selectedClientPlatform)?.label }}):</h5>
-              <button class="btn btn-outline-primary btn-sm" @click="copyClientCode">
+              <h5 class="mb-0">
+                Client Code ({{
+                  clientPlatforms.find(
+                    (p) => p.value === selectedClientPlatform
+                  )?.label
+                }}):
+              </h5>
+              <button
+                class="btn btn-outline-primary btn-sm"
+                @click="copyClientCode"
+              >
                 <i class="bi bi-clipboard"></i> Copy Client Code
               </button>
             </div>
-            <div class="border rounded p-3" :class="isDarkMode ? 'bg-dark text-light' : 'bg-light'">
+            <div class="border rounded p-3">
               <pre class="mb-0"><code>{{ clientCode }}</code></pre>
             </div>
           </div>
@@ -489,28 +579,36 @@ const downloadZip = () => {
         <div class="row mb-4">
           <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="mb-0">Server Code ({{ serverLanguages.find(l => l.value === selectedServerLanguage)?.label }}):</h5>
-              <button class="btn btn-outline-primary btn-sm" @click="copyServerCode">
+              <h5 class="mb-0">
+                Server Code ({{
+                  serverLanguages.find(
+                    (l) => l.value === selectedServerLanguage
+                  )?.label
+                }}):
+              </h5>
+              <button
+                class="btn btn-outline-primary btn-sm"
+                @click="copyServerCode"
+              >
                 <i class="bi bi-clipboard"></i> Copy Server Code
               </button>
             </div>
-            <div class="border rounded p-3" :class="isDarkMode ? 'bg-dark text-light' : 'bg-light'">
+            <div class="border rounded p-3">
               <pre class="mb-0"><code>{{ serverCode }}</code></pre>
             </div>
           </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="row">
-          <div class="col-12">
-            <div class="d-flex gap-2">
-              <button class="btn btn-secondary" @click="resetPayload">
-                <i class="bi bi-arrow-clockwise"></i> Reset
-              </button>
-              <button class="btn btn-success" @click="downloadZip">
-                <i class="bi bi-download"></i> Download as .zip
-              </button>
-            </div>
+        <div class="mb-4 d-flex justify-content-between">
+          <div class="d-flex justify-content-between">
+            <button @click="resetPayload" type="button" class="btn btn-danger">
+              Reset <i class="bi bi-eraser text-white"></i>
+            </button>
+            &nbsp;&nbsp;
+            <button @click="downloadZip" type="button" class="btn btn-primary">
+              Download <i class="bi bi-arrow-down-circle"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -528,10 +626,11 @@ pre {
 }
 
 code {
-  font-family: 'Courier New', Monaco, monospace;
+  font-family: "Courier New", Monaco, monospace;
 }
 
-.form-select, .form-control {
+.form-select,
+.form-control {
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 

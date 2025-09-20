@@ -1,0 +1,23 @@
+from firebase_admin import messaging
+import firebase_admin
+
+message = messaging.Message(
+    token="DEVICE_TOKEN",
+    notification=messaging.Notification(
+        title="{{title}}",
+        body="{{body}}"
+    ),
+    apns=messaging.APNSConfig(
+        payload=messaging.APNSPayload(
+            aps=messaging.Aps(
+                alert=messaging.ApsAlert(
+                    title="{{title}}",
+                    body="{{body}}"
+                )
+            )
+        )
+    )
+)
+
+response = messaging.send(message)
+print(f'Successfully sent message: {response}')

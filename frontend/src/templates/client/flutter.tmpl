@@ -1,0 +1,17 @@
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+        'channel_id', 'channel_name',
+        importance: Importance.max,
+        priority: Priority.high);
+
+const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+
+await flutterLocalNotificationsPlugin.show(
+    0,
+    '{{title}}',
+    '{{body}}',
+    platformChannelSpecifics);
