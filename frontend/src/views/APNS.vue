@@ -277,6 +277,10 @@ rt.EventsOn('onChangeLightMode', (event) => {
   json_editor_theme.value = 'jse-theme-light'
 });
 
+rt.EventsOn('onCodeGenerationSettingChanged', (event) => {
+  codeGenerationEnabled.value = event.enabled
+});
+
 //Cre: https://stackoverflow.com/a/2117523
 function uuidv4() {
   return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>

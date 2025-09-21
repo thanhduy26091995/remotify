@@ -175,7 +175,10 @@ func (a *App) SetAPNSType(mode values.APNSType) string {
 }
 
 func (a *App) SetCodeGenerationEnabled(enabled bool) string {
-	return usecases.SetCodeGenerationEnabled(enabled, a.db)
+	result := usecases.SetCodeGenerationEnabled(enabled, a.db)
+	// Emit event to notify all components about the setting change
+	runtime.EventsEmit(a.ctx, "onCodeGenerationSettingChanged", map[string]bool{"enabled": enabled})
+	return result
 }
 
 func (a *App) SendAPNS(deviceToken, bundleId, payload, apnsID, collapseID, expiredAt string, priority values.APNSPriority, pushType values.APNSPushType, toSave bool) string {
