@@ -15,6 +15,7 @@ import goTemplate from "../templates/server/go.tmpl?raw";
 import javaTemplate from "../templates/server/java.tmpl?raw";
 import csharpTemplate from "../templates/server/csharp.tmpl?raw";
 import phpTemplate from "../templates/server/php.tmpl?raw";
+import rubyTemplate from "../templates/server/ruby.tmpl?raw";
 
 export const clientTemplates: { [key: string]: string } = {
   "ios-swift": iosSwiftTemplate,
@@ -32,4 +33,5 @@ export const serverTemplates: { [key: string]: string } = {
   java: javaTemplate,
   csharp: csharpTemplate,
   php: phpTemplate,
+  ruby: rubyTemplate
 };

@@ -35,6 +35,7 @@ const serverLanguages = [
   { value: "java", label: "Java" },
   { value: "csharp", label: "C#" },
   { value: "php", label: "PHP" },
+  { value: "ruby", label: "Ruby" },
 ];
 
 // Reactive state
